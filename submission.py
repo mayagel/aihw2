@@ -69,8 +69,8 @@ class AgentMinimax(Agent):
                     break
             depth += 1
         return step
-    
-    def minimax(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit):
+   
+    def minimax(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit, alpha=float('-inf'), beta=float('inf')):
         if depth == 0 or time.time() - t_start >= t_limit:
             return self.smart_heuristic(env, agent_id)
         r_credit = env.get_robot(agent_id).credit
@@ -85,18 +85,20 @@ class AgentMinimax(Agent):
             child.apply_operator(agent_id, op)
             val = self.minimax(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
             curr_val = max(val, curr_val) if turn == agent_id else min(val, curr_val)
+            if type(self) == AgentAlphaBeta:
+                if turn == agent_id:
+                    alpha = max(alpha, curr_val)
+                else:
+                    beta = min(beta, curr_val)
+                if beta <= alpha:
+                    return float('inf') if turn == agent_id else float('-inf')
         return curr_val
 
 
-        
-
-
-
-class AgentAlphaBeta(Agent):
+class AgentAlphaBeta(AgentMinimax):
     # TODO: section c : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
-
+        return super().run_step(env, agent_id, time_limit)
 
 class AgentExpectimax(Agent):
     # TODO: section d : 1
