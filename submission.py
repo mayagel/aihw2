@@ -36,13 +36,14 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         return None
     r = env.get_robot(robot_id)
     r_other = env.get_robot(1 - robot_id)
-    # calc huristic
-    # check if robot has package
-    h = r.credit + (r.package is not None) * (MAX_DIST - manhattan_distance(r.position, r.package.destination))
-    + (r.package is None) * (MAX_DIST - manhattan_distance(r.position, get_better_package(env, robot_id).position))
     # if robot is losing and doesn't have enough battery to reach package/dest, go to charging station
     if r.credit < r_other.credit and r.battery < manhattan_distance(r.position, get_better_package(env, robot_id).position) + manhattan_distance(get_better_package(env, robot_id).position, get_better_package(env, robot_id).destination):
         h = r.battery + MAX_DIST - min(manhattan_distance(r.position, env.charging_stations[0]), manhattan_distance(r.position, env.charging_stations[1]))
+    # not losing or has enough battery, check if robot has a package
+    elif r.package is not None:
+        h = r.credit + (MAX_DIST - manhattan_distance(r.position, r.package.destination))
+    else:
+        h = r.credit + (MAX_DIST - manhattan_distance(r.position, get_better_package(env, robot_id).position))
     return h
 
 
@@ -58,21 +59,22 @@ class AgentMinimax(Agent):
         max_val = float('-inf')
         step = None
         depth = 1
-        while time.time() - start_t < time_limit:
+        while time.time() - start_t < time_limit - 0.05:
+            print(f"depth: {depth}")
             children = [env.clone() for _ in env.get_legal_operators(agent_id)]
             for child, op in zip(children, env.get_legal_operators(agent_id)):
                 child.apply_operator(agent_id, op)
                 val = self.minimax(child, agent_id, 1 - agent_id, depth, start_t, time_limit)
+                step = op if val > max_val else step
                 max_val = max(val, max_val)
-                step = op if val == max_val else step
                 if max_val == float('inf'):
                     break
             depth += 1
         return step
    
     def minimax(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit, alpha=float('-inf'), beta=float('inf')):
-        if depth == 0 or time.time() - t_start >= t_limit:
-            return self.smart_heuristic(env, agent_id)
+        if depth == 0 or time.time() - t_start >= t_limit - 0.05:
+            return smart_heuristic(env, agent_id)
         r_credit = env.get_robot(agent_id).credit
         other_credit = env.get_robot(1 - agent_id).credit
         if env.done():
