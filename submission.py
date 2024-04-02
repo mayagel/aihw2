@@ -1,6 +1,7 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
+import time
 
 MAX_DIST = 10
 
@@ -53,7 +54,42 @@ class AgentGreedyImproved(AgentGreedy):
 class AgentMinimax(Agent):
     # TODO: section b : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
+        start_t = time.time()
+        max_val = float('-inf')
+        step = None
+        depth = 1
+        while time.time() - start_t < time_limit:
+            children = [env.clone() for _ in env.get_legal_operators(agent_id)]
+            for child, op in zip(children, env.get_legal_operators(agent_id)):
+                child.apply_operator(agent_id, op)
+                val = self.minimax(child, agent_id, 1 - agent_id, depth, start_t, time_limit)
+                max_val = max(val, max_val)
+                step = op if val == max_val else step
+                if max_val == float('inf'):
+                    break
+            depth += 1
+        return step
+    
+    def minimax(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit):
+        if depth == 0 or time.time() - t_start >= t_limit:
+            return self.smart_heuristic(env, agent_id)
+        r_credit = env.get_robot(agent_id).credit
+        other_credit = env.get_robot(1 - agent_id).credit
+        if env.done():
+            if r_credit != other_credit:
+                return float('inf') if r_credit > other_credit else float('-inf')
+            return 0 
+        children = [env.clone() for _ in env.get_legal_operators(agent_id)]
+        curr_val = float('-inf') if turn == agent_id else float('inf')
+        for child, op in zip(children, env.get_legal_operators(agent_id)):
+            child.apply_operator(agent_id, op)
+            val = self.minimax(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
+            curr_val = max(val, curr_val) if turn == agent_id else min(val, curr_val)
+        return curr_val
+
+
         
+
 
 
 class AgentAlphaBeta(Agent):
