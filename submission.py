@@ -47,6 +47,75 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     return h
 
 
+# #salvador snippet
+# def get_charge_station_dist(env: WarehouseEnv, robot_id):
+#     agent = env.get_robot(robot_id)
+#     return min(manhattan_distance(agent.position, env.charge_stations[0].position),
+#                manhattan_distance(agent.position, env.charge_stations[1].position))
+
+
+# def get_best_package_position(env: WarehouseEnv, robot_id: int):
+#     agent = env.get_robot(robot_id)
+#     possible_package = []
+#     packages = [p for p in env.packages if p.on_board]
+#     for p in packages:
+#         dist = manhattan_distance(agent.position, p.position) + manhattan_distance(p.position, p.destination)
+#         if dist < agent.battery:
+#             possible_package.append(p)
+#     if len(possible_package) == 0:
+#         return None
+#     if len(possible_package) == 1:
+#         return possible_package[0].position
+#     p0 = possible_package[0]
+#     p0_value = 2 * manhattan_distance(p0.position, p0.destination) - manhattan_distance(p0.position, agent.position)
+#     p1 = possible_package[1]
+#     p1_value = 2 * manhattan_distance(p1.position, p1.destination) - manhattan_distance(p1.position, agent.position)
+#     if p0_value > p1_value:
+#         return p0.position
+#     return p1.position
+
+
+# def get_closest_package(env: WarehouseEnv, robot_id: int):
+#     agent = env.get_robot(robot_id)
+#     packages = [p for p in env.packages if p.on_board]
+#     min_dist = float('inf')
+#     package_position = None
+#     for p in packages:
+#         if manhattan_distance(agent.position, p.position) < min_dist:
+#             package_position = p.position
+#     return package_position
+
+
+# def robot_loosing(env: WarehouseEnv, robot_id: int):
+#     agent = env.get_robot(robot_id)
+#     rival_robot = env.get_robot((robot_id + 1) % 2)
+#     return rival_robot.credit > agent.credit
+
+
+# def smart_heuristic_value(env: WarehouseEnv, robot_id: int):
+#     agent = env.get_robot(robot_id)
+#     agent_battery = agent.battery
+#     agent_credit = agent.credit
+#     desire_package = get_best_package_position(env, robot_id)
+#     if desire_package is None and robot_loosing(env, robot_id):
+#         return agent_battery * 1000 - (2 * get_charge_station_dist(env, robot_id))
+#     if agent.package is not None:
+#         return ((agent_credit * 1000) + 2 * manhattan_distance(agent.package.position, agent.package.destination)
+#                 - manhattan_distance(agent.position, agent.package.destination))
+#     elif desire_package is None:
+#         desire_package = get_closest_package(env, robot_id)
+#     return agent_credit * 1000 - manhattan_distance(agent.position, desire_package)
+
+
+# def smart_heuristic(env: WarehouseEnv, robot_id: int):
+#     robot_h = smart_heuristic_value(env, robot_id)
+#     rival_h = smart_heuristic_value(env, (robot_id + 1) % 2)
+#     return robot_h - rival_h
+
+# #endl salvador snippet
+
+
+
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
         return smart_heuristic(env, robot_id)
@@ -60,7 +129,6 @@ class AgentMinimax(Agent):
         step = None
         depth = 1
         while time.time() - start_t < time_limit - 0.05:
-            print(f"depth: {depth}")
             children = [env.clone() for _ in env.get_legal_operators(agent_id)]
             for child, op in zip(children, env.get_legal_operators(agent_id)):
                 child.apply_operator(agent_id, op)
@@ -83,8 +151,9 @@ class AgentMinimax(Agent):
             return 0 
         children = [env.clone() for _ in env.get_legal_operators(agent_id)]
         curr_val = float('-inf') if turn == agent_id else float('inf')
-        for child, op in zip(children, env.get_legal_operators(agent_id)):
-            child.apply_operator(agent_id, op)
+        actions = env.get_legal_operators(turn)
+        for child, op in zip(children, actions):
+            child.apply_operator(turn, op)
             val = self.minimax(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
             curr_val = max(val, curr_val) if turn == agent_id else min(val, curr_val)
             if type(self) == AgentAlphaBeta:
