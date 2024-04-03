@@ -38,7 +38,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     r_other = env.get_robot(1 - robot_id)
     # if robot is losing and doesn't have enough battery to reach package/dest, go to charging station
     if r.credit < r_other.credit and r.battery < manhattan_distance(r.position, get_better_package(env, robot_id).position) + manhattan_distance(get_better_package(env, robot_id).position, get_better_package(env, robot_id).destination):
-        h = r.battery + MAX_DIST - min(manhattan_distance(r.position, env.charging_stations[0]), manhattan_distance(r.position, env.charging_stations[1]))
+        h = 100*r.battery + MAX_DIST - min(manhattan_distance(r.position, env.charging_stations[0]), manhattan_distance(r.position, env.charging_stations[1]))
     # # not losing or has enough battery, check if robot has a package
     if r.package is not None:
         h = 100*r.credit + (MAX_DIST - manhattan_distance(r.position, r.package.destination) + 2*manhattan_distance(r.package.position, r.package.destination))
