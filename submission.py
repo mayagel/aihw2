@@ -64,7 +64,7 @@ class AgentMinimax(Agent):
             children = [env.clone() for _ in env.get_legal_operators(agent_id)]
             for child, op in zip(children, env.get_legal_operators(agent_id)):
                 child.apply_operator(agent_id, op)
-                val = self.minimax(child, agent_id, 1 - agent_id, depth, start_t, time_limit)
+                val = self.eval_method(child, agent_id, 1 - agent_id, depth, start_t, time_limit)
                 step = op if val > max_val else step
                 max_val = max(val, max_val)
                 if max_val == float('inf'):
@@ -72,7 +72,7 @@ class AgentMinimax(Agent):
             depth += 1
         return step
    
-    def minimax(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit, alpha=float('-inf'), beta=float('inf')):
+    def check_done(self, env: WarehouseEnv, agent_id, depth, t_start, t_limit):
         if depth == 0 or time.time() - t_start >= t_limit - 0.05:
             return smart_heuristic(env, agent_id)
         r_credit = env.get_robot(agent_id).credit
@@ -80,13 +80,19 @@ class AgentMinimax(Agent):
         if env.done():
             if r_credit != other_credit:
                 return float('inf') if r_credit > other_credit else float('-inf')
-            return 0 
+            return 0
+        return None
+    
+    def eval_method(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit, alpha=float('-inf'), beta=float('inf')):
+        game_is_done = self.check_done(env, agent_id, depth, t_start, t_limit)
+        if game_is_done is not None:
+            return game_is_done
         children = [env.clone() for _ in env.get_legal_operators(agent_id)]
         curr_val = float('-inf') if turn == agent_id else float('inf')
         actions = env.get_legal_operators(turn)
         for child, op in zip(children, actions):
             child.apply_operator(turn, op)
-            val = self.minimax(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
+            val = self.eval_method(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
             curr_val = max(val, curr_val) if turn == agent_id else min(val, curr_val)
             if type(self) == AgentAlphaBeta:
                 if turn == agent_id:
@@ -103,10 +109,34 @@ class AgentAlphaBeta(AgentMinimax):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         return super().run_step(env, agent_id, time_limit)
 
-class AgentExpectimax(Agent):
+class AgentExpectimax(AgentMinimax):
     # TODO: section d : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+        return super().run_step(env, agent_id, time_limit)
+    
+    def eval_method(self, env: WarehouseEnv, agent_id, turn, depth, t_start, t_limit):
+        game_is_done = self.check_done(env, agent_id, depth, t_start, t_limit)
+        if game_is_done is not None:
+            return game_is_done
+        children = [env.clone() for _ in env.get_legal_operators(agent_id)]
+        actions = env.get_legal_operators(turn)
+        if turn == agent_id:
+            cur_max = float('-inf')
+            for child, action in zip(children, actions):
+                child.apply_operator(turn, action)
+                value = self.eval_method(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
+                cur_max = max(cur_max, value)
+            return cur_max
+        else:
+            value = counter = 0
+            counter += ('move east' in actions) + ('pick up' in actions)
+            for child, action in zip(children, actions):
+                p = 1 / (len(actions) + counter)
+                child.apply_operator(turn, action)
+                if action == 'move east' or action == 'pick up':
+                    p *= 2
+                value += p * self.eval_method(child, agent_id, 1 - turn, depth - 1, t_start, t_limit)
+            return value
 
 
 # here you can check specific paths to get to know the environment
